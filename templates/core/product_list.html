@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Products{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Products</h2>
+
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <form method="get" action="{% url 'product_list' %}" class="form-inline">
+                <div class="input-group">
+                    <input type="text" name="search" class="form-control" placeholder="Search products..." value="{{ search_query|default_if_none:'' }}">
+                    <button class="btn btn-outline-secondary" type="submit">Search</button>
+                </div>
+            </form>
+        </div>
+        <div class="col-md-3">
+            <form method="get" action="{% url 'product_list' %}">
+                 {% comment %} Preserve existing search and sort parameters {% endcomment %}
+                {% if search_query %}<input type="hidden" name="search" value="{{ search_query }}">{% endif %}
+                {% if sort_by %}<input type="hidden" name="sort_by" value="{{ sort_by }}">{% endif %}
+                
+                <select name="category" onchange="this.form.submit()" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for category in categories %}
+                        <option value="{{ category.pk }}" {% if selected_category|slugify == category.pk|slugify %}selected{% endif %}>{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+         <div class="col-md-3">
+            <form method="get" action="{% url 'product_list' %}">
+                 {% comment %} Preserve existing search and filter parameters {% endcomment %}
+                {% if search_query %}<input type="hidden" name="search" value="{{ search_query }}">{% endif %}
+                {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category }}">{% endif %}
+
+                <select name="sort_by" onchange="this.form.submit()" class="form-select">
+                    <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Sort by Name</option>
+                    <option value="sku" {% if sort_by == 'sku' %}selected{% endif %}>Sort by SKU</option>
+                    <option value="category" {% if sort_by == 'category' %}selected{% endif %}>Sort by Category</option>
+                    <option value="price" {% if sort_by == 'price' %}selected{% endif %}>Sort by Price</option>
+                    <option value="restock_level" {% if sort_by == 'restock_level' %}selected{% endif %}>Sort by Restock Level</option>
+                    <option value="low_stock" {% if sort_by == 'low_stock' %}selected{% endif %}>Sort by Low Stock</option>
+                    <option value="near_expiration" {% if sort_by == 'near_expiration' %}selected{% endif %}>Sort by Near Expiration</option>
+                </select>
+            </form>
+        </div>
+    </div>
+
+    <a href="{% url 'product_add' %}" class="btn btn-primary mb-3">Add New Product</a>
+    
+    <div class="row">
+        {% for product in products %}
+            <div class="col-md-4 mb-4">
+                <div class="card {% if product.current_stock <= product.restock_level %}border-danger{% endif %}">
+                    {% if product.image %}
+                        <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.name }}">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ product.name }}</h5>
+                        <p class="card-text">SKU: {{ product.sku }}</p>
+                        <p class="card-text">Category: {{ product.category }}</p>
+                         {% if product.supplier %}
+                            <p class="card-text">Supplier: {{ product.supplier.name }}</p>
+                        {% endif %}
+                        <p class="card-text">Price: ${{ product.price }}</p>
+                        <p class="card-text">Current Stock: 
+                            {{ product.current_stock }}
+                            {% if product.current_stock <= product.restock_level %}
+                                <span class="badge bg-danger">Low Stock!</span>
+                            {% endif %}
+                        </p>
+                        <p class="card-text">Restock Level: {{ product.restock_level }}</p>
+                        <a href="{% url 'product_detail' product.pk %}" class="btn btn-primary">View Details</a>
+                        <a href="{% url 'product_edit' product.pk %}" class="btn btn-sm btn-outline-secondary me-2">Edit</a>
+                        <a href="{% url 'product_delete' product.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="col">No products found.</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %} 

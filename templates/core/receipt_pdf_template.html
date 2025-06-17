@@ -1,0 +1,92 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Receipt</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20mm;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header img {
+            max-width: 100px;
+            margin-bottom: 10px;
+        }
+        .header h3 {
+            margin: 0;
+        }
+        .item-details {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .item-details th,
+        .item-details td {
+            border: 1px solid #000 !important;
+            padding: 8px;
+            text-align: left;
+        }
+        .item-details th {
+            background-color: #f2f2f2;
+        }
+        .total-line {
+            text-align: right;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="{% static 'nemsu.jpg' %}" alt="NEMSU Logo">
+        <h3>NEMSU-IGP General Merchandise</h3>
+        <p>Sales Receipt</p>
+        <p>Date: {{ receipt_date }}</p>
+        {% if customer_name %}<p>Customer Name: {{ customer_name }}</p>{% endif %}
+    </div>
+
+    <table class="item-details">
+        <thead>
+            <tr>
+                <th>QUANTITY</th>
+                <th>UNIT</th>
+                <th>ITEM/PRODUCT</th>
+                <th>PRICE</th>
+                <th>TOTAL COST</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.quantity }}</td>
+                <td>{{ item.unit }}</td>
+                <td>{{ item.item_name }}</td>
+                <td>₱{{ item.price|floatformat:2 }}</td>
+                <td>₱{{ item.item_total|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5">No items to display.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p class="total-line">
+        Grand Total: ₱{{ grand_total|floatformat:2 }}
+    </p>
+
+    <div class="footer">
+        <p>Thank you for your purchase!</p>
+    </div>
+</body>
+</html> 

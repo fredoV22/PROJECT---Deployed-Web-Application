@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Cashier Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Welcome, Cashier!</h2>
+    <p>This is your personalized dashboard where you can manage sales and transactions.</p>
+
+    <!-- Add cashier-specific functionalities here -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    New Sale
+                </div>
+                <div class="card-body">
+                    <p>Start a new sales transaction.</p>
+                    <a href="{% url 'receipt_lookup' %}" class="btn btn-primary">Generate Receipt</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    Recent Transactions
+                </div>
+                <div class="card-body">
+                    <p>View and manage recent sales transactions.</p>
+                    <a href="{% url 'sales_report' %}" class="btn btn-info">View Sales Report</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

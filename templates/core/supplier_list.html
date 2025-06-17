@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Suppliers{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Suppliers</h2>
+    <a href="{% url 'supplier_add' %}" class="btn btn-primary mb-3">Add New Supplier</a>
+    <ul class="list-group">
+        {% for supplier in suppliers %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                {{ supplier.name }}
+                <div>
+                    <a href="{% url 'supplier_edit' supplier.pk %}" class="btn btn-sm btn-outline-secondary me-2">Edit</a>
+                    <a href="{% url 'supplier_delete' supplier.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                </div>
+            </li>
+        {% empty %}
+            <li class="list-group-item">No suppliers found.</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %} 

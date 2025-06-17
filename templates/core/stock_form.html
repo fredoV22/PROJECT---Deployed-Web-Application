@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        Edit Stock Entry for {{ form.instance.product.name }}
+    {% else %}
+        Add Stock Entry
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>
+        {% if form.instance.pk %}
+            Edit Stock Entry for {{ form.instance.product.name }}
+        {% else %}
+            Add New Stock Entry
+        {% endif %}
+    </h2>
+    <form method="post">
+        {% csrf_token %}
+        
+        {{ form.product|as_crispy_field }}
+        {{ form.transaction_type|as_crispy_field }}
+
+        <div id="div_id_quantity_container" class="form-group">
+            <label for="id_quantity" class="form-label requiredField">
+                Quantity<span class="asteriskField">*</span>
+            </label>
+            <div class="controls">
+                <div class="input-group">
+                    {{ form.quantity|as_crispy_field }}
+                    {# Placeholder for dynamically loaded Current Stock #}
+                    <span class="input-group-text" id="current-stock-display" style="font-style: italic; color: #6c757d;">
+                        Current Stock: --
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        {{ form.notes|as_crispy_field }}
+        {{ form.transaction_date|as_crispy_field }}
+        {{ form.expiry_date|as_crispy_field }}
+
+        <button type="submit" class="btn btn-primary">Save</button>
+        {# Assuming we want to redirect back to product list after stock operations #}
+        <a href="{% url 'product_list' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}
+
+{# Add JavaScript for dynamic stock display and scanner input #}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const productSelect = document.getElementById('id_product');
+    const currentStockDisplay = document.getElementById('current-stock-display');
+
+    // --- Dynamic Current Stock Display (Existing Logic) ---
+    function fetchCurrentStock(productId) {
+        if (!productId) {
+            currentStockDisplay.innerText = 'Current Stock: --';
+            return;
+        }
+
+        const stockUrl = "{% url 'get_product_stock' product_id=0 %}".replace('0', productId);
+
+        currentStockDisplay.innerText = 'Loading stock...';
+
+        fetch(stockUrl)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            currentStockDisplay.innerText = `Current Stock: ${data.current_stock}`;
+        })
+        .catch(error => {
+            console.error('Error fetching stock:', error);
+            currentStockDisplay.innerText = 'Current Stock: Error';
+        });
+    }
+
+    // Fetch stock when the product selection changes
+    if (productSelect) {
+        productSelect.addEventListener('change', function() {
+            fetchCurrentStock(this.value);
+        });
+
+        // Fetch stock for the initially selected product (if any) when the page loads
+        if (productSelect.value) {
+             fetchCurrentStock(productSelect.value);
+        }
+    }
+
+    // --- Scanner Input Handling (New Logic) ---
+    let scannedInput = '';
+    let typingTimer;
+    const TYPING_TIMEOUT = 50; // Adjust based on scanner speed
+
+    document.addEventListener('keydown', function(e) {
+        // Clear the timer on keydown
+        clearTimeout(typingTimer);
+
+        // Check if the key is 'Enter'
+        if (e.key === 'Enter') {
+            // Prevent default form submission if any
+            e.preventDefault();
+
+            if (scannedInput) {
+                console.log('Scanned SKU:', scannedInput);
+                // Use the scanned SKU to look up the product
+                lookupProductBySku(scannedInput);
+                scannedInput = ''; // Clear the buffer after processing
+            }
+        } else {
+            // Append the character to the scannedInput buffer
+            // Consider filtering out non-alphanumeric characters if necessary
+            if (e.key.length === 1) { // Only append single characters
+                 scannedInput += e.key;
+            }
+            
+            // Set a timer to clear the input if typing stops (distinguish from manual typing)
+            typingTimer = setTimeout(() => {
+                scannedInput = ''; // Clear buffer if typing is slow
+                console.log('Scanner input timed out.');
+            }, TYPING_TIMEOUT);
+        }
+    });
+
+    function lookupProductBySku(sku) {
+        if (!sku) {
+            console.log('No SKU to look up.');
+            return;
+        }
+
+        const lookupUrl = "{% url 'get_product_by_sku' %}?sku=" + encodeURIComponent(sku);
+
+        console.log('Looking up product with SKU:', sku);
+
+        fetch(lookupUrl)
+        .then(response => {
+            if (!response.ok) {
+                 if (response.status === 404) {
+                    console.warn('Product with SKU not found:', sku);
+                    // Optionally display a message to the user
+                 } else {
+                    console.error('Error looking up product by SKU:', response.statusText);
+                 }
+                 throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.id && productSelect) {
+                console.log('Product found:', data.name, '(' + data.sku + ')');
+                // Select the product in the dropdown
+                productSelect.value = data.id;
+
+                // Trigger a change event on the select to update the current stock display
+                const changeEvent = new Event('change');
+                productSelect.dispatchEvent(changeEvent);
+            } else if (!data.id) {
+                console.warn('Product data missing ID after lookup for SKU:', sku);
+            }
+        })
+        .catch(error => {
+            console.error('Fetch error during SKU lookup:', error);
+            // Optionally inform the user that lookup failed
+        });
+    }
+});
+</script>
+{% endblock %} 

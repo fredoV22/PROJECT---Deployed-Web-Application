@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>{{ product.name }}</h2>
+            {% if product.image %}
+                <img src="{{ product.image.url }}" class="img-fluid mb-3" alt="{{ product.name }}">
+            {% endif %}
+            <p><strong>SKU:</strong> {{ product.sku }}</p>
+            <p><strong>Category:</strong> {{ product.category }}</p>
+            {% if product.supplier %}
+                <p><strong>Supplier:</strong> {{ product.supplier.name }}</p>
+            {% endif %}
+            <p><strong>Price:</strong> ${{ product.price }}</p>
+            <p><strong>Unit:</strong> {{ product.get_unit_display }}</p>
+            <p><strong>Description:</strong> {{ product.description|linebreaksbr }}</p>
+            <p><strong>Current Stock:</strong> {{ product.current_stock }}</p>
+            <p><strong>Restock Level:</strong> {{ product.restock_level }}</p>
+            <a href="{% url 'record_stock_transaction' %}" class="btn btn-success mb-3">Add Stock Transaction</a>
+            <h3>Stock Transactions</h3>
+            <ul class="list-group">
+                {% for transaction in product.stock_movements.all %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ transaction.transaction_date|date:"Y-m-d H:i" }} - {{ transaction.transaction_type|capfirst }} ({{ transaction.quantity }})
+                         {% if transaction.batch_number %}- Batch: {{ transaction.batch_number }}{% endif %}
+                         {% if transaction.expiry_date %}(Expires: {{ transaction.expiry_date }}){% endif %}
+                         <div>
+                            <a href="{% url 'stock_edit' transaction.pk %}" class="btn btn-sm btn-outline-secondary me-2">Edit</a>
+                            <a href="{% url 'stock_delete' transaction.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                        </div>
+                    </li>
+                {% empty %}
+                    <li class="list-group-item">No stock transactions found.</li>
+                {% endfor %}
+            </ul>
+            <a href="{% url 'product_list' %}" class="btn btn-secondary mt-3">Back to Products</a>
+        </div>
+    </div>
+</div>
+{% endblock %} 

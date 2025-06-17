@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard Overview{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Dashboard Overview</h2>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-header">Total Products</div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ total_products }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-header">Total Categories</div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ total_categories }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-header">Total Suppliers</div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ total_suppliers }}</h5>
+                </div>
+            </div>
+        </div>
+        {# Add more KPI cards here later #}
+    </div>
+
+    <div class="row mt-4">
+         <div class="col-md-6">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-header">Income Today</div>
+                <div class="card-body">
+                    <h5 class="card-title">₱{{ daily_income|floatformat:2 }}</h5>
+                </div>
+            </div>
+        </div>
+         <div class="col-md-6">
+            <div class="card text-white bg-danger mb-3">
+                <div class="card-header">Income This Month</div>
+                <div class="card-body">
+                    <h5 class="card-title">₱{{ monthly_income|floatformat:2 }}</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h3>Transaction History</h3>
+    <ul class="list-group">
+        {% for item in transaction_history %}
+            <li class="list-group-item">
+                {# Check if it's a Stock transaction #}
+                {% if item.transaction_date %}
+                    {{ item.transaction_date|date:"Y-m-d H:i" }} - Stock Transaction: {{ item.product.name }} - {{ item.get_transaction_type_display }} ({{ item.quantity }})
+                {# Check if it's a Product (assuming Product has 'sku') #}
+                {% elif item.sku %}
+                    {{ item.created_at|date:"Y-m-d H:i" }} - New Product: {{ item.name }}
+                {# Check if it's a Supplier (assuming Supplier has 'contact_person' and not 'sku') #}
+                {% elif item.contact_person %}
+                     {{ item.created_at|date:"Y-m-d H:i" }} - New Supplier: {{ item.name }}
+                {# Otherwise, assume it's a Category (assuming Category has 'name' and 'created_at' and none of the above) #}
+                {% elif item.name and item.created_at %}
+                     {{ item.created_at|date:"Y-m-d H:i" }} - New Category: {{ item.name }}
+                {% else %}
+                    {# Fallback for unexpected item types #}
+                    {{ item }} - Unknown Activity Type
+                {% endif %}
+            </li>
+        {% empty %}
+            <li class="list-group-item">No recent activity found.</li>
+        {% endfor %}
+    </ul>
+
+    {# Add low stock alerts and more reporting sections here later #}
+
+</div>
+{% endblock %} 

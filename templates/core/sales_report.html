@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}Sales Report{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Sales Summary Report</h2>
+
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-header">Daily Sales ({{ today|date:"M d, Y" }})</div>
+                <div class="card-body">
+                    <h5 class="card-title">₱{{ daily_total|floatformat:2 }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-header">Weekly Sales ({{ start_of_week|date:"M d" }} - {{ today|date:"M d, Y" }})</div>
+                <div class="card-body">
+                    <h5 class="card-title">₱{{ weekly_total|floatformat:2 }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-header">Monthly Sales ({{ start_of_month|date:"M Y" }})</div>
+                <div class="card-body">
+                    <h5 class="card-title">₱{{ monthly_total|floatformat:2 }}</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %} 

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Stock Value Report{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Stock Value Report</h2>
+
+    <div class="card">
+        <div class="card-header">
+            Total Stock Value
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">${{ total_stock_value|floatformat:2 }}</h5>
+        </div>
+    </div>
+
+    {# We could add a table here later to show value per product or category #}
+
+</div>
+{% endblock %} 

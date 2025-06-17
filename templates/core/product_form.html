@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}
+    {% if form.instance.pk %}
+        Edit Product: {{ form.instance.name }}
+    {% else %}
+        Add Product
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>
+        {% if form.instance.pk %}
+            Edit Product: {{ form.instance.name }}
+        {% else %}
+            Add New Product
+        {% endif %}
+    </h2>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form|crispy }}
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="{% url 'product_list' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}
+
+{# Add JavaScript for scanner input and form pre-filling #}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- Scanner Input Handling ---
+    let scannedInput = '';
+    let typingTimer;
+    const TYPING_TIMEOUT = 50; // Adjust based on scanner speed
+
+    document.addEventListener('keydown', function(e) {
+        // Clear the timer on keydown
+        clearTimeout(typingTimer);
+
+        // Check if the key is 'Enter'
+        if (e.key === 'Enter') {
+            // Prevent default form submission if an input is focused. 
+            // This is a common issue with scanners that emulate keyboard input.
+             if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+                 e.preventDefault();
+             }
+
+            if (scannedInput) {
+                console.log('Scanned SKU:', scannedInput);
+                // Use the scanned SKU to look up the product details
+                lookupProductAndPopulateForm(scannedInput);
+                scannedInput = ''; // Clear the buffer after processing
+            }
+        } else {
+            // Append the character to the scannedInput buffer
+            // Consider filtering out non-alphanumeric characters if necessary
+            if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { // Only append single characters, exclude modifiers
+                 scannedInput += e.key;
+            }
+            
+            // Set a timer to clear the input if typing stops (distinguish from manual typing)
+            typingTimer = setTimeout(() => {
+                scannedInput = ''; // Clear buffer if typing is slow
+                console.log('Scanner input timed out.');
+            }, TYPING_TIMEOUT);
+        }
+    });
+
+    function lookupProductAndPopulateForm(sku) {
+        if (!sku) {
+            console.log('No SKU to look up.');
+            return;
+        }
+
+        // Get the URL for the SKU lookup view
+        const lookupUrl = "{% url 'get_product_by_sku' %}?sku=" + encodeURIComponent(sku);
+
+        console.log('Looking up product details with SKU:', sku);
+
+        fetch(lookupUrl)
+        .then(response => {
+            if (!response.ok) {
+                 if (response.status === 404) {
+                    console.warn('Product with SKU not found:', sku);
+                    // Optionally display a message to the user, e.g., 'Product not found for SKU XXXXX'
+                 } else {
+                    console.error('Error looking up product by SKU:', response.statusText);
+                 }
+                 // You might want to clear relevant form fields or just the SKU field if lookup fails
+                 const skuField = document.getElementById('id_sku'); 
+                 if (skuField) { skuField.value = ''; } // Clear the SKU field if it was scanned into it
+
+                 throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data) {
+                console.log('Product details found:', data);
+                // Populate form fields with the received data
+                const form = document.querySelector('form'); // Get the form
+
+                // Define the mapping of data keys to form field IDs
+                const fieldsToPopulate = [
+                    { id: 'id_name', key: 'name' },
+                    { id: 'id_sku', key: 'sku' }, 
+                    { id: 'id_description', key: 'description' },
+                    { id: 'id_unit', key: 'unit' },
+                    { id: 'id_price', key: 'price' },
+                    { id: 'id_restock_level', key: 'restock_level' },
+                    // For ForeignKey fields (category and supplier), set the value to the ID
+                    { id: 'id_category', key: 'category_id' },
+                    { id: 'id_supplier', key: 'supplier_id' },
+                ];
+
+                fieldsToPopulate.forEach(fieldInfo => {
+                    const fieldElement = document.getElementById(fieldInfo.id);
+                    // Check if the form field exists and the data key is present in the response
+                    if (fieldElement && data.hasOwnProperty(fieldInfo.key) && data[fieldInfo.key] !== null) {
+                         // Handle different field types
+                         if (fieldElement.tagName === 'SELECT') {
+                             // For select elements, find and select the option with the matching value
+                             let optionFound = false;
+                             for (let i = 0; i < fieldElement.options.length; i++) {
+                                 if (fieldElement.options[i].value == data[fieldInfo.key]) {
+                                     fieldElement.selectedIndex = i;
+                                     optionFound = true;
+                                     break;
+                                 }
+                             }
+                              if (!optionFound) {
+                                 console.warn(`Option with value ${data[fieldInfo.key]} not found for ${fieldInfo.id}.`);
+                                 // Optionally, clear the field or handle the error appropriately
+                                 // fieldElement.value = ''; 
+                              }
+
+                         } else if (fieldElement.type === 'checkbox') {
+                             // For checkboxes, set checked status (assuming boolean data)
+                              fieldElement.checked = data[fieldInfo.key];
+                         } else {
+                             // For text, number, textarea, etc. fields, set the value directly
+                              fieldElement.value = data[fieldInfo.key];
+                         }
+
+                        // Optionally trigger a change event if other scripts depend on it
+                        const event = new Event('change');
+                        fieldElement.dispatchEvent(event);
+                    }
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Fetch error during SKU lookup and form population:', error);
+            // Optionally inform the user that lookup and pre-filling failed
+        });
+    }
+});
+</script>
+{% endblock %} 

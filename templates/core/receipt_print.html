@@ -1,0 +1,121 @@
+{% load mathfilters %}
+{% comment %}{% endcomment %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Receipt for Transaction #{{ stock_transaction.id }}</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20mm; /* Adjust margins for printing */
+        }
+        .receipt-container {
+            width: 100%;
+            max-width: 80mm; /* Typical receipt width */
+            margin: 0 auto;
+            border: 1px dashed #000; /* Optional: add a border */
+            padding: 10mm;
+        }
+        .header, .footer {
+            text-align: center;
+            margin-bottom: 10mm;
+        }
+        .item-details {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10mm;
+        }
+        .item-details th, .item-details td {
+            padding: 2mm;
+            border-bottom: 1px dashed #eee;
+            text-align: left;
+        }
+        .item-details th {
+            border-bottom: 1px solid #000;
+        }
+        .total-line {
+            text-align: right;
+            font-weight: bold;
+        }
+        @media print {
+            body {
+                margin: 0;
+            }
+            .receipt-container {
+                border: none;
+                padding: 0;
+                max-width: none;
+            }
+            button {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">
+        <div class="header">
+            <h3>NEMSU-IGP General Merchandise</h3>
+            <p>Stock Transaction Receipt</p>
+            <p>Date: {{ stock_transaction.transaction_date|date:"Y-m-d H:i" }}</p>
+            <p>Transaction ID: {{ stock_transaction.id }}</p>
+            {# Assuming client name might be in notes or related field if applicable for 'out' transactions #}
+            {# {% if stock_transaction.notes %}
+                <p>Notes: {{ stock_transaction.notes }}</p>
+            {% endif %} #}
+            <button onclick="window.print()">Print</button>
+        </div>
+
+        <table class="item-details">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {# Display details for the single stock transaction #}
+                <tr>
+                    <td>{{ stock_transaction.product.name }}</td>
+                    <td>{{ stock_transaction.quantity }}</td>
+                    {# Only display price and calculate total for 'out' transactions #}
+                    {% if stock_transaction.transaction_type == 'out' %}
+                        <td>₱{{ stock_transaction.product.price|floatformat:2 }}</td>
+                        <td>₱{{ stock_transaction.quantity|mul:stock_transaction.product.price|floatformat:2 }}</td>
+                    {% else %}
+                         <td>N/A</td>
+                         <td>N/A</td>
+                    {% endif %}
+                </tr>
+            </tbody>
+        </table>
+
+        {% if stock_transaction.transaction_type == 'out' %}
+            <p class="total-line">
+                 Grand Total: ₱{{ stock_transaction.quantity|mul:stock_transaction.product.price|floatformat:2 }}
+            </p>
+        {% endif %}
+
+
+        {# Notes field from Stock model #}
+        {% if stock_transaction.notes %}
+            <p>Notes: {{ stock_transaction.notes }}</p>
+        {% endif %}
+
+        <div class="footer">
+            <p>Thank you!</p>
+            {# Add more footer info like address, contact, etc. #}
+        </div>
+    </div>
+
+    <script>
+        // Automatically trigger print dialog when the page loads
+        window.onload = function() {
+            window.print();
+        }
+    </script>
+</body>
+</html> 

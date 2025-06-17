@@ -1,0 +1,59 @@
+{% extends 'landing_base.html' %}
+{% load static %}
+
+{% block title %}Welcome to NEMSU-IGP General Merchandise Inventory System{% endblock %}
+
+{% block content %}
+<div class="container text-center mt-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <img src="{% static 'nemsu.jpg' %}" alt="NEMSU Logo" class="img-fluid mb-3" style="max-height: 150px;">
+            <h1 class="display-4">NEMSU-IGP General Merchandise Inventory System</h1>
+            <p class="lead mb-4">"Smart Inventory Control. Real-Time, Reliable, and Simple."</p>
+            <p class="mb-5">This comprehensive system helps manage inventory, track sales, generate reports, and streamline stock transactions for the NEMSU-IGP General Merchandise, ensuring efficient operations and accurate data.</p>
+        </div>
+    </div>
+
+    <div id="systemCarousel" class="carousel slide mb-5" data-bs-ride="carousel">
+        <div class="carousel-indicators">
+            <button type="button" data-bs-target="#systemCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
+            <button type="button" data-bs-target="#systemCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button>
+            <button type="button" data-bs-target="#systemCarousel" data-bs-slide-to="2" aria-label="Slide 3"></button>
+        </div>
+        <div class="carousel-inner">
+            <div class="carousel-item active">
+                <img src="{% static 'dashboard_screenshot.jpg' %}" class="d-block w-100 img-fluid rounded" alt="Dashboard Screenshot">
+                <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded">
+                    <h5>Dashboard Overview</h5>
+                    <p>Get a quick glance at key metrics and recent activities.</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img src="{% static 'reports_screenshot.jpg' %}" class="d-block w-100 img-fluid rounded" alt="Reports Screenshot">
+                <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded">
+                    <h5>Comprehensive Reports</h5>
+                    <p>Access daily, weekly, monthly sales, and transaction history.</p>
+                </div>
+            </div>
+            <div class="carousel-item">
+                <img src="{% static 'pos_screenshot.jpg' %}" class="d-block w-100 img-fluid rounded" alt="POS Screenshot">
+                <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded">
+                    <h5>Streamlined POS</h5>
+                    <p>Efficiently record sales and manage inventory in real-time.</p>
+                </div>
+            </div>
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#systemCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#systemCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Next</span>
+        </button>
+    </div>
+
+    <p class="mt-5">Ready to get started?</p>
+    <a href="{% url 'dashboard' %}" class="btn btn-primary btn-lg">Go to Dashboard</a>
+</div>
+{% endblock %} 

@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% load mathfilters %}
+
+{% block title %}Point of Sale{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>Point of Sale System</h2>
+
+    <div class="row">
+        {# Left Column: Input Controls #}
+        <div class="col-md-6">
+            <h3>Select Products</h3>
+            {# Placeholder for product listing and selection #}
+            <div id="product-selection-area">
+                {% for product in products %}
+                    <div class="card mb-2">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ product.name }} ({{ product.sku }})</h5>
+                            <p class="card-text">Price: ₱{{ product.price|floatformat:2 }}</p>
+                            {# Placeholder for add/quantity controls #}
+                            <button class="btn btn-sm btn-primary add-to-sale-btn" data-product-id="{{ product.id }}" data-product-price="{{ product.price }}">Add to Sale</button>
+                            {# Quantity input could appear after adding #}
+                            <div class="quantity-control" style="display: none;">
+                                Quantity: <input type="number" value="1" min="1" class="form-control form-control-sm d-inline-block w-auto quantity-input">
+                                <button class="btn btn-sm btn-danger remove-item-btn">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p>No active products available.</p>
+                {% endfor %}
+            </div>
+
+            <h3 class="mt-4">Client Details</h3>
+            {# Placeholder for client name input #}
+            <div class="mb-3">
+                <label for="client_name" class="form-label">Client Name (Optional):</label>
+                <input type="text" class="form-control" id="client_name">
+            </div>
+
+            <h3 class="mt-4">Sale Actions</h3>
+            {# Placeholder for finalize sale button #}
+            <button id="finalize-sale-btn" class="btn btn-success">Finalize Sale and Print Receipt</button>
+
+        </div>
+
+        {# Right Column: Receipt Preview #}
+        <div class="col-md-6">
+            <h3>Receipt Preview</h3>
+            {# Placeholder for dynamic receipt content #}
+            <div id="receipt-preview" style="border: 1px dashed #000; padding: 15px;">
+                <h4>NEMSU-IGP General Merchandise</h4>
+                <p>Inventory System Receipt</p>
+                <hr>
+                <div id="preview-items">
+                    {# Sale items will be added here dynamically via JavaScript #}
+                    <p>Add items to see preview...</p>
+                </div>
+                <hr>
+                <p><strong>Total: ₱<span id="preview-total">0.00</span></strong></p>
+                <p id="preview-client-name"></p>
+                <p><small>Date: <span id="preview-date"></span></small></p>
+                {# Transaction ID placeholder #}
+                <p><small>Transaction ID: <span id="preview-transaction-id">N/A</span></small></p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Placeholder for JavaScript to handle product selection, quantity updates,
+// calculating totals, updating preview, and finalizing sale.
+// This will be implemented in a future step.
+
+document.addEventListener('DOMContentLoaded', function() {
+    const productSelectionArea = document.getElementById('product-selection-area');
+    const receiptPreview = document.getElementById('receipt-preview');
+    const previewItems = document.getElementById('preview-items');
+    const previewTotal = document.getElementById('preview-total');
+    const clientNameInput = document.getElementById('client_name');
+    const previewClientName = document.getElementById('preview-client-name');
+    const finalizeSaleBtn = document.getElementById('finalize-sale-btn');
+    const previewDate = document.getElementById('preview-date');
+    const previewTransactionId = document.getElementById('preview-transaction-id');
+
+    let currentSaleItems = {}; // { productId: { product: {...}, quantity: N, price: P }, ... }
+
+    // Function to update the receipt preview
+    function updateReceiptPreview() {
+        previewItems.innerHTML = '';
+        let total = 0;
+        for (const productId in currentSaleItems) {
+            const item = currentSaleItems[productId];
+            const itemTotal = item.quantity * item.price;
+            total += itemTotal;
+
+            const itemElement = document.createElement('p');
+            itemElement.textContent = `${item.quantity} x ${item.product.name} - ₱${item.price.toFixed(2)} = ₱${itemTotal.toFixed(2)}`;
+            previewItems.appendChild(itemElement);
+        }
+
+        if (Object.keys(currentSaleItems).length === 0) {
+             previewItems.innerHTML = '<p>Add items to see preview...</p>';
+        }
+
+        previewTotal.textContent = total.toFixed(2);
+        previewClientName.textContent = clientNameInput.value ? `Client Name: ${clientNameInput.value}` : '';
+
+        // Update date to current date/time
+        const now = new Date();
+        const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+        previewDate.textContent = now.toLocaleDateString(undefined, dateOptions);
+
+        // Transaction ID will be updated after finalizing the sale
+        previewTransactionId.textContent = 'N/A'; // Reset until sale is finalized
+    }
+
+    // Handle adding a product to the sale
+    productSelectionArea.addEventListener('click', function(event) {
+        const addButton = event.target.closest('.add-to-sale-btn');
+        if (addButton) {
+            const productId = addButton.dataset.productId;
+            const productPrice = parseFloat(addButton.dataset.productPrice);
+            const productCardBody = addButton.closest('.card-body');
+            const productName = productCardBody.querySelector('.card-title').textContent.split('(')[0].trim(); // Extract name
+
+            if (!currentSaleItems[productId]) {
+                // Add new item to sale
+                currentSaleItems[productId] = {
+                    product: { id: productId, name: productName }, // Store relevant product info
+                    quantity: 1,
+                    price: productPrice
+                };
+
+                // Show quantity control for this product card
+                const quantityControl = productCardBody.querySelector('.quantity-control');
+                quantityControl.style.display = 'inline-block';
+                quantityControl.querySelector('.quantity-input').value = 1;
+
+                 // Hide the 'Add to Sale' button
+                 addButton.style.display = 'none';
+
+            } else {
+                 // Increment quantity if already in sale
+                 currentSaleItems[productId].quantity += 1;
+                 const quantityInput = productCardBody.querySelector('.quantity-input');
+                 if (quantityInput) { // Update the input field as well
+                      quantityInput.value = currentSaleItems[productId].quantity;
+                 }
+            }
+            updateReceiptPreview();
+        }
+
+        const removeButton = event.target.closest('.remove-item-btn');
+        if (removeButton) {
+             const productCardBody = removeButton.closest('.card-body');
+             const addButton = productCardBody.querySelector('.add-to-sale-btn');
+             const quantityControl = productCardBody.querySelector('.quantity-control');
+             const quantityInput = quantityControl.querySelector('.quantity-input');
+
+             const productName = productCardBody.querySelector('.card-title').textContent.split('(')[0].trim();
+             // Find the product ID in currentSaleItems based on name (less ideal than using data-product-id on the quantity control)
+             // A better approach would be to store the product ID with the quantity control itself.
+             // For now, let's refactor slightly to get product ID from the card.
+             const productId = addButton.dataset.productId; // Use the ID stored on the add button
+
+             if (currentSaleItems[productId]) {
+                 delete currentSaleItems[productId];
+             }
+
+             // Hide quantity control and show add button
+             quantityControl.style.display = 'none';
+             addButton.style.display = 'inline-block';
+             quantityInput.value = 1; // Reset quantity input
+
+             updateReceiptPreview();
+        }
+    });
+
+    // Handle quantity changes in the input field
+    productSelectionArea.addEventListener('input', function(event) {
+         const quantityInput = event.target.closest('.quantity-input');
+         if (quantityInput) {
+             const newQuantity = parseInt(quantityInput.value, 10);
+             const productCardBody = quantityInput.closest('.card-body');
+             const addButton = productCardBody.querySelector('.add-to-sale-btn');
+             const productId = addButton.dataset.productId; // Use the ID stored on the add button
+
+             if (currentSaleItems[productId] && !isNaN(newQuantity) && newQuantity > 0) {
+                 currentSaleItems[productId].quantity = newQuantity;
+             } else if (currentSaleItems[productId] && (!isNaN(newQuantity) && newQuantity <= 0 || isNaN(newQuantity))) {
+                  // If quantity is invalid or 0, remove the item
+                  delete currentSaleItems[productId];
+                   const quantityControl = quantityInput.closest('.quantity-control');
+                   const removeButton = quantityControl.querySelector('.remove-item-btn');
+
+                   quantityControl.style.display = 'none';
+                   addButton.style.display = 'inline-block';
+                   quantityInput.value = 1; // Reset quantity input
+             }
+             updateReceiptPreview();
+         }
+    });
+
+
+    // Handle client name input changes
+    clientNameInput.addEventListener('input', function() {
+        updateReceiptPreview(); // Update preview whenever client name changes
+    });
+
+    // Handle finalizing the sale
+    finalizeSaleBtn.addEventListener('click', function() {
+        if (Object.keys(currentSaleItems).length === 0) {
+            alert('Please add items to the sale before finalizing.');
+            return;
+        }
+
+        const saleData = {
+            client_name: clientNameInput.value,
+            items: Object.values(currentSaleItems) // Send array of item objects
+        };
+
+        // Send sale data to the server to create Sale and SaleItem objects
+        fetch('{% url 'pos_system' %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}' // Include CSRF token
+            },
+            body: JSON.stringify(saleData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                 // Handle errors (e.g., insufficient stock)
+                 return response.json().then(errorData => { throw new Error(errorData.error || 'Failed to finalize sale.'); });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Sale finalized successfully:', data);
+            // Redirect to the print receipt page for the new sale
+            if (data.sale_id) {
+                 window.location.href = '{% url 'receipt_print' transaction_id=data.sale_id %} '; // Note: We will need to update receipt_print to accept sale_id
+            } else {
+                 alert('Sale finalized, but could not get receipt URL.');
+                 // Optionally, clear the current sale here
+                 currentSaleItems = {};
+                 clientNameInput.value = '';
+                 // Reset UI for next sale
+                 productSelectionArea.querySelectorAll('.quantity-control').forEach(el => el.style.display = 'none');
+                 productSelectionArea.querySelectorAll('.add-to-sale-btn').forEach(el => el.style.display = 'inline-block');
+                 productSelectionArea.querySelectorAll('.quantity-input').forEach(el => el.value = 1);
+                 updateReceiptPreview();
+            }
+        })
+        .catch(error => {
+            console.error('Error finalizing sale:', error);
+            alert('Error finalizing sale: ' + error.message);
+        });
+    });
+
+    // Initial preview update
+    updateReceiptPreview();
+});
+</script>
+{% endblock %} 

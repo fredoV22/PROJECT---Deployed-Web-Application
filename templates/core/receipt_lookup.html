@@ -1,0 +1,598 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% load mathfilters %}
+{% load static %}
+
+{% block title %}Generate Receipt{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Generate New Receipt</h2>
+
+    <div class="row">
+        <div class="col-md-6 border p-3 mb-4 bg-white">
+            <div class="form-group mb-3">
+                <label for="customer_name">Customer Name</label>
+                <input type="text" class="form-control" id="customer_name" name="customer_name" placeholder="Enter Customer Name">
+            </div>
+            {% csrf_token %}
+
+            <div class="item-entry-form-group">
+                <div class="form-row">
+                    <div class="form-group col-md-6 mb-3">
+                        <label for="item_name_input">Item Name</label>
+                        <input type="text" class="form-control" id="item_name_input" name="item_name" placeholder="Type to search for an item">
+                        <div id="product-suggestions" class="list-group position-absolute w-100" style="z-index: 1000;"></div>
+                        <input type="hidden" id="selected_product_id" name="product_id">
+                    </div>
+                    <div class="form-group col-md-2 mb-3">
+                        <label for="quantity">Quantity</label>
+                        <input type="number" class="form-control" id="quantity" name="quantity" placeholder="Quantity" min="1" value="1">
+                    </div>
+                    <div class="form-group col-md-4 mb-3">
+                        <label for="price">Price per Item</label>
+                        <input type="number" class="form-control" id="price" name="price" placeholder="Price" step="0.01" min="0" readonly>
+                    </div>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="unit">Unit</label>
+                    <input type="text" class="form-control" id="unit" name="unit" placeholder="e.g., Pcs, Pck, Bx, grams" readonly>
+                </div>
+                <button type="button" id="add-item-to-receipt-btn" class="btn btn-secondary mt-2">Add Item to Receipt</button>
+            </div>
+            
+        </div>
+
+        <div class="col-md-6 border p-3 mb-4 bg-white">
+            <div class="mt-4 receipt-container">
+                <div class="header">
+                    <h3>NEMSU-IGP General Merchandise</h3>
+                    <p>Sales Receipt</p>
+                    <p>Date: <span id="receipt-date"></span></p>
+                    <p id="receipt-customer-name"></p>
+                </div>
+
+                <table class="item-details">
+                    <thead>
+                        <tr>
+                            <th>QUANTITY</th>
+                            <th>UNIT</th>
+                            <th>ITEM/PRODUCT</th>
+                            <th>PRICE</th>
+                            <th>TOTAL COST</th>
+                            <th>ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody id="receipt-items-tbody">
+                        {# Items will be rendered here by JavaScript #}
+                    </tbody>
+                </table>
+
+                <p class="total-line">
+                     Grand Total: ₱<span id="receipt-grand-total">0.00</span>
+                </p>
+
+                <div class="footer">
+                    <p>Thank you for your purchase!</p>
+                    {# Add more footer info like address, contact, etc. #}
+                    <button type="button" id="preview-receipt-btn" class="btn btn-info mt-3">Preview Receipt</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Receipt Preview Modal -->
+<div class="modal fade" id="receiptPreviewModal" tabindex="-1" aria-labelledby="receiptPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="receiptPreviewModalLabel">Receipt Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="receipt-modal-body">
+                <!-- Receipt content will be dynamically loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" id="finalize-sale-btn">Finalize Sale</button>
+                <button type="button" class="btn btn-primary" id="download-pdf-btn">Download PDF</button>
+                <button type="button" class="btn btn-info" id="print-receipt-btn">Print Receipt</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Basic styles for the receipt display */
+    .receipt-container .item-details {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 10mm;
+        border: 1px solid #000; /* Main table border */
+    }
+    .receipt-container .item-details th,
+    .receipt-container .item-details td {
+        padding: 8px; /* Adjusted padding for better visual */
+        border: 1px solid #000; /* Cell borders */
+        text-align: left;
+    }
+    .receipt-container .item-details th {
+        background-color: #f2f2f2; /* Light background for headers */
+        font-weight: bold;
+    }
+    .receipt-container .total-line {
+        text-align: right;
+        font-weight: bold;
+    }
+    /* Print styles (keep for print functionality) */
+    @media print {
+        /* Hide non-receipt elements when printing */
+        body *:not(.receipt-container):not(.receipt-container *) {
+            display: none;
+        }
+        .receipt-container {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            border: none;
+            padding: 0;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const customerNameInput = document.getElementById('customer_name');
+        const itemInput = document.getElementById('item_name_input');
+        const quantityInput = document.getElementById('quantity');
+        const priceInput = document.getElementById('price');
+        const unitInput = document.getElementById('unit');
+        const addItemToReceiptBtn = document.getElementById('add-item-to-receipt-btn');
+        
+        const receiptCustomerName = document.getElementById('receipt-customer-name');
+        const receiptDate = document.getElementById('receipt-date');
+        const receiptItemsTbody = document.getElementById('receipt-items-tbody');
+        const receiptGrandTotal = document.getElementById('receipt-grand-total');
+        const receiptModalBody = document.getElementById('receipt-modal-body');
+        const printReceiptBtn = document.getElementById('print-receipt-btn');
+        const finalizeSaleBtn = document.getElementById('finalize-sale-btn');
+        const downloadPdfBtn = document.getElementById('download-pdf-btn');
+
+        let currentReceiptItems = [];
+
+        // Reference to the new input fields
+        const suggestionsContainer = document.getElementById('product-suggestions');
+        const selectedProductIdInput = document.getElementById('selected_product_id');
+
+        let debounceTimeout;
+
+        itemInput.addEventListener('input', function() {
+            clearTimeout(debounceTimeout);
+            const query = this.value.trim();
+
+            if (query.length > 1) { // Start searching after 2 characters
+                debounceTimeout = setTimeout(() => {
+                    fetch(`/products/suggestions/?query=${query}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            suggestionsContainer.innerHTML = ''; // Clear previous suggestions
+                            if (data.products && data.products.length > 0) {
+                                data.products.forEach(product => {
+                                    const suggestionItem = document.createElement('a');
+                                    suggestionItem.href = '#';
+                                    suggestionItem.classList.add('list-group-item', 'list-group-item-action');
+                                    suggestionItem.textContent = `${product.name} (SKU: ${product.id}) - Stock: ${product.current_stock}`;
+                                    suggestionItem.dataset.productId = product.id;
+                                    suggestionItem.dataset.productName = product.name;
+                                    suggestionItem.dataset.productPrice = product.price;
+                                    suggestionItem.dataset.productUnit = product.unit;
+                                    suggestionItem.dataset.currentStock = product.current_stock;
+
+                                    suggestionItem.addEventListener('click', function(e) {
+                                        e.preventDefault();
+                                        itemInput.value = this.dataset.productName;
+                                        priceInput.value = parseFloat(this.dataset.productPrice).toFixed(2);
+                                        unitInput.value = this.dataset.productUnit;
+                                        selectedProductIdInput.value = this.dataset.productId; // Store product ID
+                                        quantityInput.max = this.dataset.currentStock;
+                                        if (parseInt(quantityInput.value) > parseInt(this.dataset.currentStock)) {
+                                            quantityInput.value = this.dataset.currentStock;
+                                        }
+                                        suggestionsContainer.innerHTML = ''; // Clear suggestions after selection
+                                    });
+                                    suggestionsContainer.appendChild(suggestionItem);
+                                });
+                            } else {
+                                suggestionsContainer.innerHTML = '<div class="list-group-item text-muted">No suggestions</div>';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error fetching suggestions:', error);
+                            suggestionsContainer.innerHTML = '<div class="list-group-item text-danger">Error fetching suggestions</div>';
+                        });
+                }, 300); // Debounce for 300ms
+            } else {
+                suggestionsContainer.innerHTML = ''; // Clear suggestions if query is too short
+            }
+            selectedProductIdInput.value = ''; // Clear selected product ID if typing continues
+            priceInput.value = ''; // Clear price
+            unitInput.value = ''; // Clear unit
+            quantityInput.max = ''; // Clear max quantity
+            quantityInput.value = '1'; // Reset quantity
+        });
+
+        // Clear suggestions when focus leaves the input field (with a slight delay)
+        itemInput.addEventListener('blur', function() {
+            setTimeout(() => {
+                suggestionsContainer.innerHTML = '';
+            }, 200);
+        });
+
+        addItemToReceiptBtn.addEventListener('click', function() {
+            const item_name = itemInput.value.trim();
+            const quantity = parseInt(quantityInput.value);
+            const price = parseFloat(priceInput.value);
+            const unit = unitInput.value.trim();
+            const product_id = selectedProductIdInput.value; // Get the stored product ID
+            const current_stock = parseInt(quantityInput.max);
+
+            if (!item_name || isNaN(quantity) || quantity <= 0 || isNaN(price) || price < 0 || !unit || !product_id) {
+                alert('Please fill in all item details correctly and select a product from suggestions.');
+                return;
+            }
+            
+            if (quantity > current_stock) {
+                alert(`Only ${current_stock} unit(s) of ${item_name} available. Please adjust quantity.`);
+                return;
+            }
+
+            // Check if item already exists in the current receipt, if so, update quantity
+            const existingItemIndex = currentReceiptItems.findIndex(item => item.product_id === product_id);
+            if (existingItemIndex > -1) {
+                const existingItem = currentReceiptItems[existingItemIndex];
+                const newQuantity = existingItem.quantity + quantity;
+                if (newQuantity > current_stock) {
+                    alert(`Adding ${quantity} more units would exceed available stock for ${item_name}. Max available: ${current_stock}. Current in receipt: ${existingItem.quantity}.`);
+                    return;
+                }
+                existingItem.quantity = newQuantity;
+            } else {
+                currentReceiptItems.push({
+                    product_id: product_id,
+                    item_name: item_name,
+                    quantity: quantity,
+                    price: price,
+                    unit: unit,
+                });
+            }
+
+            renderReceipt();
+
+            // Clear form fields after adding
+            itemInput.value = '';
+            quantityInput.value = '1';
+            priceInput.value = '';
+            unitInput.value = '';
+            selectedProductIdInput.value = ''; // Clear stored ID
+            quantityInput.max = ''; // Clear max quantity
+        });
+
+        // Function to render the receipt on the right side
+        function renderReceipt() {
+            // Update customer name and date
+            receiptCustomerName.textContent = customerNameInput.value ? `Customer Name: ${customerNameInput.value}` : '';
+            receiptDate.textContent = new Date().toLocaleString();
+
+            // Clear existing table rows
+            receiptItemsTbody.innerHTML = '';
+            let grandTotal = 0;
+
+            if (currentReceiptItems.length === 0) {
+                receiptItemsTbody.innerHTML = '<tr><td colspan="6">No items to display.</td></tr>';
+                receiptGrandTotal.textContent = '0.00';
+                return;
+            }
+
+            currentReceiptItems.forEach((item, index) => {
+                const itemTotal = item.quantity * item.price;
+                grandTotal += itemTotal;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.quantity}</td>
+                    <td>${item.unit}</td>
+                    <td>${item.item_name}</td>
+                    <td>₱${item.price.toFixed(2)}</td>
+                    <td>₱${itemTotal.toFixed(2)}</td>
+                    <td><button type="button" class="btn btn-danger btn-sm delete-receipt-item-btn" data-index="${index}">Delete</button></td>
+                `;
+                receiptItemsTbody.appendChild(row);
+            });
+
+            receiptGrandTotal.textContent = grandTotal.toFixed(2);
+
+            // Add event listeners to newly created delete buttons
+            document.querySelectorAll('.delete-receipt-item-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const indexToDelete = parseInt(this.dataset.index);
+                    currentReceiptItems.splice(indexToDelete, 1);
+                    renderReceipt(); // Re-render the receipt after deletion
+                });
+            });
+        }
+
+        // Function to generate the receipt content for the modal
+        function generateReceiptContent() {
+            let modalContent = '';
+            modalContent += `
+                <div class="receipt-container">
+                    <div class="header">
+                        <img src="{% static 'nemsu.jpg' %}" alt="NEMSU Logo" style="max-width: 100px; margin-bottom: 10px;">
+                        <h3>NEMSU-IGP General Merchandise</h3>
+                        <p>Sales Receipt</p>
+                        <p>Date: ${new Date().toLocaleString()}</p>
+                        <p>${customerNameInput.value ? `Customer Name: ${customerNameInput.value}` : ''}</p>
+                    </div>
+
+                    <table class="item-details">
+                        <thead>
+                            <tr>
+                                <th>QUANTITY</th>
+                                <th>UNIT</th>
+                                <th>ITEM/PRODUCT</th>
+                                <th>PRICE</th>
+                                <th>TOTAL COST</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            let grandTotal = 0;
+            if (currentReceiptItems.length === 0) {
+                modalContent += `<tr><td colspan="5">No items to display.</td></tr>`;
+            } else {
+                currentReceiptItems.forEach(item => {
+                    const itemTotal = item.quantity * item.price;
+                    grandTotal += itemTotal;
+                    modalContent += `
+                        <tr>
+                            <td>${item.quantity}</td>
+                            <td>${item.unit}</td>
+                            <td>${item.item_name}</td>
+                            <td>₱${item.price.toFixed(2)}</td>
+                            <td>₱${itemTotal.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            modalContent += `
+                        </tbody>
+                    </table>
+
+                    <p class="total-line">
+                        Grand Total: ₱${grandTotal.toFixed(2)}
+                    </p>
+
+                    <div class="footer">
+                        <p>Thank you for your purchase!</p>
+                    </div>
+                </div>
+            `;
+            return modalContent;
+        }
+
+        // Event listener for the Preview Receipt button
+        document.getElementById('preview-receipt-btn').addEventListener('click', function() {
+            receiptModalBody.innerHTML = generateReceiptContent();
+            const receiptPreviewModal = new bootstrap.Modal(document.getElementById('receiptPreviewModal'));
+            receiptPreviewModal.show();
+        });
+
+        // Event listener for Print Receipt button inside the modal
+        printReceiptBtn.addEventListener('click', function() {
+            const customer_name = customerNameInput.value;
+            const items = currentReceiptItems.map(item => ({
+                product_id: item.product_id,
+                item_name: item.item_name,
+                quantity: item.quantity,
+                unit: item.unit,
+                price: item.price
+            }));
+
+            if (items.length === 0) {
+                alert('Please add items to the receipt before printing.');
+                return;
+            }
+
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            fetch('/receipt/generate-pdf/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken,
+                },
+                body: JSON.stringify({
+                    customer_name: customer_name,
+                    items: items
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                } else {
+                    return response.json().then(errorData => {
+                        throw new Error(errorData.message || 'Failed to generate PDF for printing');
+                    });
+                }
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const newWindow = window.open(url, '_blank');
+                if (newWindow) {
+                    newWindow.onload = () => {
+                        newWindow.print();
+                        window.URL.revokeObjectURL(url);
+                    };
+                } else {
+                    alert('Please allow pop-ups for this website to print the receipt.');
+                    window.URL.revokeObjectURL(url);
+                }
+            })
+            .catch(error => {
+                console.error('Error generating PDF for print:', error);
+                alert(`Error printing receipt: ${error.message || 'An unknown error occurred.'}`);
+            });
+        });
+
+        // Event listener for Finalize Sale button inside the modal
+        finalizeSaleBtn.addEventListener('click', function() {
+            const customer_name = customerNameInput.value;
+            const items = currentReceiptItems.map(item => ({
+                product_id: item.product_id,
+                item_name: item.item_name,
+                quantity: item.quantity,
+                unit: item.unit,
+                price: item.price
+            }));
+
+            if (items.length === 0) {
+                alert('Please add items to the receipt before finalizing the sale.');
+                return;
+            }
+
+            // Get CSRF token
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            fetch('/receipt/save/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken,
+                },
+                body: JSON.stringify({
+                    customer_name: customer_name,
+                    items: items
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    // Clear items, reset form, and close modal on success
+                    currentReceiptItems = [];
+                    renderReceipt(); // Clear the on-page receipt display
+                    customerNameInput.value = '';
+                    itemInput.value = '';
+                    quantityInput.value = '1';
+                    priceInput.value = '';
+                    unitInput.value = '';
+                    const receiptPreviewModal = bootstrap.Modal.getInstance(document.getElementById('receiptPreviewModal'));
+                    if (receiptPreviewModal) {
+                        receiptPreviewModal.hide();
+                    }
+                } else if (data.status === 'warning') {
+                    alert(`${data.message}\n\nDetails:\n${data.details.join('\n')}`);
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error finalizing sale:', error);
+                alert('An error occurred while finalizing the sale. Please try again.');
+            });
+        });
+
+        // Event listener for Download PDF button inside the modal
+        downloadPdfBtn.addEventListener('click', function() {
+            const customer_name = customerNameInput.value;
+            const items = currentReceiptItems.map(item => ({
+                product_id: item.product_id,
+                item_name: item.item_name,
+                quantity: item.quantity,
+                unit: item.unit,
+                price: item.price
+            }));
+
+            if (items.length === 0) {
+                alert('Please add items to the receipt before downloading PDF.');
+                return;
+            }
+
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            fetch('/receipt/generate-pdf/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken,
+                },
+                body: JSON.stringify({
+                    customer_name: customer_name,
+                    items: items
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob(); // Get the response as a Blob
+                } else {
+                    // If response is not OK, try to parse as JSON to get error message
+                    return response.json().then(errorData => {
+                        throw new Error(errorData.message || 'Failed to generate PDF');
+                    });
+                }
+            })
+            .then(blob => {
+                // Create a URL for the Blob and trigger download
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `receipt_${new Date().toISOString().slice(0,10)}.pdf`; // Default filename
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url); // Clean up the URL object
+            })
+            .catch(error => {
+                console.error('Error generating PDF:', error);
+                alert(`Error generating PDF: ${error.message || 'An unknown error occurred.'}`);
+            });
+        });
+
+        // Auto-fill price and unit when item is selected (REMOVED - now handled by autocomplete)
+        // itemSelect.addEventListener('change', function() {
+        //     const selectedOption = this.options[this.selectedIndex];
+        //     if (selectedOption.value) {
+        //         const price = selectedOption.dataset.price;
+        //         const unit = selectedOption.dataset.unit;
+        //         const currentStock = parseInt(selectedOption.dataset.currentStock);
+
+        //         priceInput.value = parseFloat(price).toFixed(2);
+        //         unitInput.value = unit;
+        //         quantityInput.max = currentStock;
+        //         if (parseInt(quantityInput.value) > currentStock) {
+        //             quantityInput.value = currentStock;
+        //         }
+        //         if (currentStock === 0) {
+        //             quantityInput.value = '0';
+        //             alert('This product is out of stock.');
+        //         }
+        //     } else {
+        //         priceInput.value = '';
+        //         unitInput.value = '';
+        //         quantityInput.max = '';
+        //         quantityInput.value = '1';
+        //     }
+        // });
+
+        // Initial rendering of receipt (empty)
+        renderReceipt();
+
+        // Update receipt when customer name changes
+        customerNameInput.addEventListener('input', renderReceipt);
+    });
+</script>
+{% endblock %}
